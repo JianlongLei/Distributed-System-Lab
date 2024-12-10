@@ -1,0 +1,22 @@
+{
+    "name": "simple",
+    "topologies": [
+        {
+            "pathToFile": "topologies/small_topology.json"
+        },
+        {
+            "pathToFile": "topologies/big_topology.json"
+        }
+    ],
+    "workloads": [
+        {
+            "pathToFile": "workload_traces/bitbrains-small",
+            "type": "ComputeWorkload"
+        }
+    ],
+    "exportModels": [
+        {
+            "exportInterval": 30000
+        }
+    ]
+}

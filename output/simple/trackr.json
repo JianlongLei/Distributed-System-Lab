@@ -1,0 +1,168 @@
+[{
+    "name": "simple",
+    "computeExportConfig": {
+        "hostExportColumns": [
+            "timestamp",
+            "timestamp_absolute",
+            "host_id",
+            "host_name",
+            "core_count",
+            "mem_capacity",
+            "guests_terminated",
+            "guests_running",
+            "guests_error",
+            "guests_invalid",
+            "cpu_limit",
+            "cpu_usage",
+            "cpu_demand",
+            "cpu_utilization",
+            "cpu_time_active",
+            "cpu_time_idle",
+            "cpu_time_steal",
+            "cpu_time_lost",
+            "power_draw",
+            "energy_usage",
+            "uptime",
+            "downtime",
+            "boot_time",
+            "boot_time_absolute"
+        ],
+        "taskExportColumns": [
+            "timestamp",
+            "timestamp_absolute",
+            "task_id",
+            "host_id",
+            "task_name",
+            "cpu_count",
+            "mem_capacity",
+            "cpu_limit",
+            "cpu_time_active",
+            "cpu_time_idle",
+            "cpu_time_steal",
+            "cpu_time_lost",
+            "uptime",
+            "downtime",
+            "provision_time",
+            "boot_time",
+            "creation_time",
+            "finish_time",
+            "boot_time_absolute",
+            "task_state"
+        ],
+        "powerSourceExportColumns": [
+            "timestamp",
+            "timestamp_absolute",
+            "hosts_connected",
+            "power_draw",
+            "energy_usage",
+            "carbon_intensity",
+            "carbon_emission"
+        ],
+        "serviceExportColumns": [
+            "timestamp",
+            "timestamp_absolute",
+            "hosts_up",
+            "tasks_pending",
+            "tasks_total",
+            "tasks_active",
+            "tasks_completed",
+            "tasks_terminated",
+            "attempts_success",
+            "attempts_failure"
+        ]
+    },
+    "topology": {
+        "pathToFile": "topologies/small_topology.json"
+    },
+    "workload": {
+        "pathToFile": "workload_traces/bitbrains-small",
+        "type": "ComputeWorkload"
+    },
+    "exportModel": {
+        "exportInterval": 30000
+    }
+},
+{
+    "name": "simple",
+    "computeExportConfig": {
+        "hostExportColumns": [
+            "timestamp",
+            "timestamp_absolute",
+            "host_id",
+            "host_name",
+            "core_count",
+            "mem_capacity",
+            "guests_terminated",
+            "guests_running",
+            "guests_error",
+            "guests_invalid",
+            "cpu_limit",
+            "cpu_usage",
+            "cpu_demand",
+            "cpu_utilization",
+            "cpu_time_active",
+            "cpu_time_idle",
+            "cpu_time_steal",
+            "cpu_time_lost",
+            "power_draw",
+            "energy_usage",
+            "uptime",
+            "downtime",
+            "boot_time",
+            "boot_time_absolute"
+        ],
+        "taskExportColumns": [
+            "timestamp",
+            "timestamp_absolute",
+            "task_id",
+            "host_id",
+            "task_name",
+            "cpu_count",
+            "mem_capacity",
+            "cpu_limit",
+            "cpu_time_active",
+            "cpu_time_idle",
+            "cpu_time_steal",
+            "cpu_time_lost",
+            "uptime",
+            "downtime",
+            "provision_time",
+            "boot_time",
+            "creation_time",
+            "finish_time",
+            "boot_time_absolute",
+            "task_state"
+        ],
+        "powerSourceExportColumns": [
+            "timestamp",
+            "timestamp_absolute",
+            "hosts_connected",
+            "power_draw",
+            "energy_usage",
+            "carbon_intensity",
+            "carbon_emission"
+        ],
+        "serviceExportColumns": [
+            "timestamp",
+            "timestamp_absolute",
+            "hosts_up",
+            "tasks_pending",
+            "tasks_total",
+            "tasks_active",
+            "tasks_completed",
+            "tasks_terminated",
+            "attempts_success",
+            "attempts_failure"
+        ]
+    },
+    "topology": {
+        "pathToFile": "topologies/big_topology.json"
+    },
+    "workload": {
+        "pathToFile": "workload_traces/bitbrains-small",
+        "type": "ComputeWorkload"
+    },
+    "exportModel": {
+        "exportInterval": 30000
+    }
+}]
