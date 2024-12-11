@@ -77,9 +77,6 @@
     "workload": {
         "pathToFile": "workload_traces/bitbrains-small",
         "type": "ComputeWorkload"
-    },
-    "exportModel": {
-        "exportInterval": 30000
     }
 },
 {
@@ -161,8 +158,5 @@
     "workload": {
         "pathToFile": "workload_traces/bitbrains-small",
         "type": "ComputeWorkload"
-    },
-    "exportModel": {
-        "exportInterval": 30000
     }
 }]
