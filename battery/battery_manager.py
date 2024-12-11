@@ -142,11 +142,12 @@ if __name__ == "__main__":
         analyzer = EnergyAnalyzer(power_source_file)
         analyzer.load_output()
 
-        results = analyzer.simulate(battery_capacity=50)
-
-        print(f"Total Clean Energy Used: {results['total_clean_energy']:.2f} kWs")
-        print(f"Total Non-Clean Energy Used: {results['total_non_clean_energy']:.2f} kWs")
-        print(f"Total Battery Energy Used: {results['total_battery_energy']:.2f} kWs")
-        print(f"Total Energy Used: {results['total_clean_energy'] + results['total_non_clean_energy'] + 
-                                    results['total_battery_energy']:.2f} kWs")
+        capacity=40 + i * 5
+        results = analyzer.simulate(battery_capacity=capacity)
+        print(f"capacity: {capacity}")
+        total = results['total_clean_energy'] + results['total_non_clean_energy'] + results['total_battery_energy']
+        print(f"Total Clean Energy Used: {results['total_clean_energy']:.2f} kWs, {results['total_clean_energy'] / total * 100:.2f}%")
+        print(f"Total Non-Clean Energy Used: {results['total_non_clean_energy']:.2f} kWs, {results['total_non_clean_energy'] / total * 100:.2f}%")
+        print(f"Total Battery Energy Used: {results['total_battery_energy']:.2f} kWs, {results['total_battery_energy'] / total * 100:.2f}%")
+        print(f"Total Energy Used: {total:.2f} kWs")
         print('-' * 50)
