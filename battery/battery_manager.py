@@ -180,25 +180,35 @@ class PowerManagerQLearning:
         self.gamma = gamma  # Discount factor
         self.epsilon = epsilon  # Exploration rate
 
-    def discretize_state(self, battery_level, max_battery_level, power_demand, max_power_demand,
-                         green_energy_supply, max_green_energy_supply):
+    def discretize_state(self, battery_level, min_battery_level, max_battery_level,
+                         power_demand, min_power_demand, max_power_demand,
+                         green_energy_supply, min_green_energy_supply, max_green_energy_supply):
         num_battery_intervals = 10
         num_power_demand_intervals = 10
         num_green_energy_intervals = 10
 
-        normalized_battery_level = battery_level / max_battery_level
-        normalized_power_demand = power_demand / max_power_demand
-        normalized_green_energy_supply = green_energy_supply / max_green_energy_supply
+        # Min-Max Normalization
+        normalized_battery_level = (battery_level - min_battery_level) / (max_battery_level - min_battery_level)
+        normalized_power_demand = (power_demand - min_power_demand) / (max_power_demand - min_power_demand)
+        normalized_green_energy_supply = (green_energy_supply - min_green_energy_supply) / (max_green_energy_supply - min_green_energy_supply)
 
+        # Clip values to ensure they are within [0, 1]
+        normalized_battery_level = max(0, min(1, normalized_battery_level))
+        normalized_power_demand = max(0, min(1, normalized_power_demand))
+        normalized_green_energy_supply = max(0, min(1, normalized_green_energy_supply))
+
+        # Discretize to intervals
         discrete_battery_level = int(normalized_battery_level * num_battery_intervals)
         discrete_power_demand = int(normalized_power_demand * num_power_demand_intervals)
         discrete_green_energy_supply = int(normalized_green_energy_supply * num_green_energy_intervals)
 
+        # Calculate state index
         state_index = discrete_battery_level * (num_power_demand_intervals * num_green_energy_intervals) + \
                       discrete_power_demand * num_green_energy_intervals + \
                       discrete_green_energy_supply
 
         return state_index
+
 
     def choose_action(self, state):
         if np.random.rand() < self.epsilon:
@@ -213,7 +223,7 @@ class PowerManagerQLearning:
         reward = 0
         reward += 10 * clean_energy_used  # Reward for green energy usage
         reward -= 5 * non_clean_energy_used  # Penalty for traditional energy usage
-        reward += 5 * battery_change  # Reward for efficient battery management
+        reward += 8 * battery_change  # Reward for efficient battery management
         return reward
 
     def save_q_table(self, file_path):
@@ -226,12 +236,14 @@ class PowerManagerQLearning:
         return False
 
 class PowerManagerQLearningWrapper:
-    def __init__(self, energy_model, battery, q_learning_manager, max_power_demand):
+    def __init__(self, energy_model, battery, q_learning_manager, min_power_demand, max_power_demand):
         self.energy_model = energy_model
         self.battery = battery
         self.q_learning_manager = q_learning_manager
         self.max_battery_level = battery.capacity
+        self.min_power_demand = min_power_demand
         self.max_power_demand = max_power_demand
+        self.min_green_energy_supply = int(max(0, min(energy_model.green_energy_profile) - 1))
         self.max_green_energy_supply = int(max(energy_model.green_energy_profile) + 1)
 
     def supply_power(self, demand, current_time = -1):
@@ -239,8 +251,10 @@ class PowerManagerQLearningWrapper:
             self.energy_model.current_time = current_time
         green_energy = self.energy_model.get_green_energy()
         state = self.q_learning_manager.discretize_state(
-            self.battery.charge_level, self.max_battery_level, demand, self.max_power_demand, green_energy,
-            self.max_green_energy_supply)
+            battery_level =  self.battery.charge_level, min_battery_level=0, max_battery_level=self.max_battery_level,
+            power_demand=demand, min_power_demand=self.min_power_demand, max_power_demand=self.max_power_demand,
+            green_energy_supply=green_energy, min_green_energy_supply=self.min_green_energy_supply,
+            max_green_energy_supply=self.max_green_energy_supply)
 
         action = self.q_learning_manager.choose_action(state)
 
@@ -256,7 +270,7 @@ class PowerManagerQLearningWrapper:
         else:  # Use traditional energy
             non_clean_energy_used = demand
 
-        return clean_energy_used / 1000, non_clean_energy_used / 1000, battery_energy / 1000
+        return action, clean_energy_used / 1000, non_clean_energy_used / 1000, battery_energy / 1000
 
     def manage_battery(self):
         green_energy = self.energy_model.get_green_energy()
@@ -271,43 +285,59 @@ class PowerManagerQLearningWrapper:
         return remain_green_energy
 
 def train_qlearning_manager(q_learning_manager, episodes, analyzer, deep, load_path = None, save_path=None,
-                            train_more = False):
-    if load_path:
-        if q_learning_manager.load_q_table(load_path) and not train_more:
+                            train_more = False, use_new = False):
+    if load_path and not use_new:
+        if not q_learning_manager.load_q_table(load_path) and not train_more:
             return
     for episode in tqdm(range(episodes), desc="Training Progress", unit="episode"):
         battery, energy_model = analyzer.generate_models()
+        min_power_demand = int(max(0, min(analyzer.power_demand) - 1))
         max_power_demand = int(max(analyzer.power_demand) + 1)
-        power_manager = PowerManagerQLearningWrapper(energy_model, battery, q_learning_manager, max_power_demand)
-        clean_energy_used, non_clean_energy_used, battery_energy = 0, 0, 0
+        power_manager = PowerManagerQLearningWrapper(
+            energy_model, battery, q_learning_manager, min_power_demand, max_power_demand)
         for i in range(len(analyzer.power_demand)):
             current_time = energy_model.current_time
             battery_train, energy_model_train = analyzer.generate_models()
+            first_action = None
+            clean_energy_used, non_clean_energy_used, battery_energy_used = 0, 0, 0
             for j in range(i, min(i + deep, len(analyzer.power_demand))):
                 demand = analyzer.power_demand[j]
-                power_manager_train = PowerManagerQLearningWrapper(energy_model_train, battery_train, q_learning_manager, max_power_demand)
-                clean_energy, non_clean_energy, battery_energy = power_manager_train.supply_power(demand, current_time)
+                power_manager_train = PowerManagerQLearningWrapper(
+                    energy_model=energy_model_train, battery=battery_train, q_learning_manager=q_learning_manager,
+                    min_power_demand=min_power_demand, max_power_demand=max_power_demand)
+                action, clean_energy, non_clean_energy, battery_energy = power_manager_train.supply_power(demand, current_time)
+                if not first_action:
+                    first_action = action
                 power_manager_train.manage_battery()
                 current_time = energy_model_train.current_time
 
                 clean_energy_used += clean_energy
                 non_clean_energy_used += non_clean_energy
-                battery_energy += battery_energy
+                battery_energy_used += battery_energy
             demand = analyzer.power_demand[i]
             green_energy = energy_model.get_green_energy()
+
             state = q_learning_manager.discretize_state(
-                power_manager.battery.charge_level, power_manager.max_battery_level, demand,
-                power_manager.max_power_demand, green_energy, power_manager.max_green_energy_supply)
-            action = q_learning_manager.choose_action(state)
+                battery_level =  power_manager.battery.charge_level, min_battery_level=0,
+                max_battery_level=power_manager.max_battery_level,
+                power_demand=demand, min_power_demand=power_manager.min_power_demand,
+                max_power_demand=power_manager.max_power_demand,
+                green_energy_supply=green_energy, min_green_energy_supply=power_manager.min_green_energy_supply,
+                max_green_energy_supply=power_manager.max_green_energy_supply)
+            action = first_action
 
             power_manager.supply_power(demand, current_time)
             green_energy = power_manager.manage_battery()
 
-            demand = 0
-            reward = q_learning_manager.calculate_reward(clean_energy_used, non_clean_energy_used, battery_energy)
+            demand = analyzer.power_demand[min(i + 1, len(analyzer.power_demand) - 1)]
+            reward = q_learning_manager.calculate_reward(clean_energy_used, non_clean_energy_used, battery_energy_used)
             next_state = q_learning_manager.discretize_state(
-                    power_manager.battery.charge_level, power_manager.max_battery_level, demand,
-                    power_manager.max_power_demand, green_energy, power_manager.max_green_energy_supply)
+                battery_level =  power_manager.battery.charge_level, min_battery_level=0,
+                max_battery_level=power_manager.max_battery_level,
+                power_demand=demand, min_power_demand=power_manager.min_power_demand,
+                max_power_demand=power_manager.max_power_demand,
+                green_energy_supply=green_energy, min_green_energy_supply=power_manager.min_green_energy_supply,
+                max_green_energy_supply=power_manager.max_green_energy_supply)
             q_learning_manager.learn(state, action, reward, next_state)
     if save_path:
         q_learning_manager.save_q_table(save_path)
@@ -319,26 +349,28 @@ def do_simulation_with_qlearning():
 
     power_source_file = "output/simple/raw-output/0/seed=0/powerSource.parquet"
 
-    for i in range(5):
+    for i in range(1):
         capacity = 10 + i * 5
         analyzer = EnergyAnalyzer(power_source_file, capacity, None)
         # Training phase
         episodes = 10
         deep = 10
-        file_path = f'q_learning_{capacity}_{episodes}_{deep}.csv'
+        file_path = f'q_learning_{capacity}_{episodes}_{deep}'
         train_qlearning_manager(q_learning_manager, episodes=episodes, analyzer=analyzer, deep=deep,
-                                load_path=file_path, save_path=file_path)
+                                load_path=file_path, save_path=file_path, use_new=True)
         # Testing phase
         battery, energy_model = analyzer.generate_models()
+        min_power_demand = int(max(0, min(analyzer.power_demand) - 1))
         max_power_demand = int(max(analyzer.power_demand) + 1)
-        power_manager = PowerManagerQLearningWrapper(energy_model, battery, q_learning_manager, max_power_demand)
+        power_manager = PowerManagerQLearningWrapper(
+            energy_model, battery, q_learning_manager, min_power_demand, max_power_demand)
 
         total_clean_energy = 0
         total_non_clean_energy = 0
         total_battery_energy = 0
 
         for demand in analyzer.power_demand:
-            clean_energy, non_clean_energy, battery_energy = power_manager.supply_power(demand)
+            action, clean_energy, non_clean_energy, battery_energy = power_manager.supply_power(demand)
             total_clean_energy += clean_energy
             total_non_clean_energy += non_clean_energy
             total_battery_energy += battery_energy
