@@ -16,7 +16,7 @@
     ],
     "exportModels": [
         {
-            "exportInterval": 300
+            "exportInterval": 1800
         }
     ]
 }
